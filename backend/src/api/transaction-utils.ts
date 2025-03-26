@@ -121,6 +121,7 @@ class TransactionUtils {
     const adjustedVsize = Math.max(fractionalVsize, sigops *  5); // adjusted vsize = Max(weight, sigops * bytes_per_sigop) / witness_scale_factor
     const feePerVbytes = (transaction.fee || 0) / fractionalVsize;
     const adjustedFeePerVsize = (transaction.fee || 0) / adjustedVsize;
+    const effectiveFeePerVsize = transaction['effectiveFeePerVsize'] || adjustedFeePerVsize || feePerVbytes;
     const transactionExtended: MempoolTransactionExtended = Object.assign(transaction, {
       order: this.txidToOrdering(transaction.txid),
       vsize,
@@ -128,7 +129,7 @@ class TransactionUtils {
       sigops,
       feePerVsize: feePerVbytes,
       adjustedFeePerVsize: adjustedFeePerVsize,
-      effectiveFeePerVsize: adjustedFeePerVsize,
+      effectiveFeePerVsize: effectiveFeePerVsize,
     });
     if (!transactionExtended?.status?.confirmed && !transactionExtended.firstSeen) {
       transactionExtended.firstSeen = Math.round((Date.now() / 1000));
@@ -419,6 +420,29 @@ class TransactionUtils {
 
     return { prioritized, deprioritized };
   }
+
+  // Copied from https://github.com/mempool/mempool/blob/14e49126c3ca8416a8d7ad134a95c5e090324d69/backend/src/api/bitcoin/bitcoin-api.ts#L324
+  public translateScriptPubKeyType(outputType: string): string {
+    const map = {
+      'pubkey': 'p2pk',
+      'pubkeyhash': 'p2pkh',
+      'scripthash': 'p2sh',
+      'witness_v0_keyhash': 'v0_p2wpkh',
+      'witness_v0_scripthash': 'v0_p2wsh',
+      'witness_v1_taproot': 'v1_p2tr',
+      'nonstandard': 'nonstandard',
+      'multisig': 'multisig',
+      'anchor': 'anchor',
+      'nulldata': 'op_return'
+    };
+
+    if (map[outputType]) {
+      return map[outputType];
+    } else {
+      return 'unknown';
+    }
+  }
+  
 }
 
 export default new TransactionUtils();
